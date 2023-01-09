@@ -21,5 +21,8 @@ sudo bittwist -v -i wlan1 [pcapfile location]
 ```
 
 
-## Install
+## Build and execute
+```
+make
+./airodump <interface>
 ```
