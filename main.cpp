@@ -23,15 +23,15 @@ Param param = {
 struct data {
    std::string bssid;
    uint32_t beacons;
-   uint32_t num_data;
-   std::string enc;
+   uint32_t ch;
+   int8_t pwr;
    std::string essid;
    
    data(std::string _bssid) {
       bssid = _bssid;
       beacons = 0;
-      num_data = 0;
-      enc = "-";
+      pwr = 0;
+      ch = 0;
    }
    data() : data(""){}
 };
@@ -82,10 +82,10 @@ int main(int argc, char* argv[]) {
       printf("\x1B[2J");
       printf("\x1B[H");
       
-      printf("\nBSSID\t\t\tBeacons\tnum_data\tENC\tESSID\n");
-      for (auto [bssid, beacons, num_data, enc, essid] : packet_info) {
-         printf("%s\t%u\t%u\t\t%s\t%s\n", bssid.c_str(), beacons,
-         num_data, enc.c_str(), essid.c_str());
+      printf("\nBSSID\t\t\tBeacons\tCH\tPWR\tESSID\n");
+      for (auto [bssid, beacons, ch, pwr, essid] : packet_info) {
+         printf("%s\t%u\t%u\t%d\t%s\n", bssid.c_str(), beacons,
+         ch, pwr, essid.c_str());
       }
       uint32_t remain = header->caplen;
       u_char* packet_ptr = const_cast<u_char*>(packet);
@@ -94,9 +94,13 @@ int main(int argc, char* argv[]) {
       packet_ptr += length;
       remain -= length;
       if (remain <= 0) continue;
+      
+      int PWR = packet_ptr[-2];
+      
       if (packet_ptr[0] == 0x80) { // beacon
          packet_ptr += sizeof(IEEE80211_request_header);
          remain -= sizeof(IEEE80211_request_header);
+         
          if(remain <= 0) continue;
          
          mac_address bssid = reinterpret_cast<IEEE80211_address*>(packet_ptr)->bss_id;
@@ -112,6 +116,8 @@ int main(int argc, char* argv[]) {
          }
          
          packet_info[i].beacons++;
+         packet_info[i].pwr = PWR;
+         
          
          packet_ptr += sizeof(IEEE80211_address);
          remain -= sizeof(IEEE80211_address);
@@ -126,6 +132,9 @@ int main(int argc, char* argv[]) {
                memcpy(essid, packet_ptr + 2, tag_length);
                essid[tag_length] = 0;
                packet_info[i].essid = essid;
+            }
+            if (tag_number == 3) { // DS Parameter set
+               packet_info[i].ch = packet_ptr[2];
             }
             packet_ptr += 2 + tag_length;
             remain -= 2 + tag_length;
